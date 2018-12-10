@@ -13,6 +13,7 @@ using Google.Apis.Admin.Directory.directory_v1.Data;
 using Google.Apis.Services;
 using Google.Apis.Requests;
 using Google.Apis.Util.Store;
+using GSuite.Libs.Helpers;
 
 namespace GSuite.Libs.Services
 {
@@ -22,7 +23,9 @@ namespace GSuite.Libs.Services
         IConfiguration _configuration;
         ISerferService _serfer;
 
+
         public event EventHandler<string> UniversalEvent;
+        public event EventHandler<AddingMembersStateEventArgs> AddingMemberIterruptEvent;
 
         public Worker(ISerferService serfer)
         {

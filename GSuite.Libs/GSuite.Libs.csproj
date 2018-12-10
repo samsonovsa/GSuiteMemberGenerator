@@ -78,6 +78,7 @@
     <Compile Include="Config\Configuration.cs" />
     <Compile Include="Config\IConfiguration.cs" />
     <Compile Include="Config\ConfigIoCModule.cs" />
+    <Compile Include="Helpers\AddingMembersStateEventArgs.cs" />
     <Compile Include="Helpers\MessageLoopApartment.cs" />
     <Compile Include="Helpers\Utils.cs" />
     <Compile Include="Services\SerferSeleniumService.cs" />
