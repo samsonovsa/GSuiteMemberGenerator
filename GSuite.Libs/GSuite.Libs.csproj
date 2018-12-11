@@ -81,6 +81,7 @@
     <Compile Include="Helpers\AddingMembersStateEventArgs.cs" />
     <Compile Include="Helpers\MessageLoopApartment.cs" />
     <Compile Include="Helpers\Utils.cs" />
+    <Compile Include="Services\SerferAPIService.cs" />
     <Compile Include="Services\SerferSeleniumService.cs" />
     <Compile Include="Services\SerferService.cs" />
     <Compile Include="Helpers\WebBrowserExt.cs" />

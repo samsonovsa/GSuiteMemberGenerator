@@ -23,9 +23,13 @@ namespace GSuite.Libs.Services
         IConfiguration _configuration;
         ISerferService _serfer;
 
+        List<string> _existGroups;
+        List<Models.User> _membersLeftToAdd;
+        int _availableRepeatConnection = 10;
+
 
         public event EventHandler<string> UniversalEvent;
-        public event EventHandler<AddingMembersStateEventArgs> AddingMemberIterruptEvent;
+        //public event EventHandler<AddingMembersStateEventArgs> AddingMemberIterruptEvent;
 
         public Worker(ISerferService serfer)
         {
@@ -34,6 +38,8 @@ namespace GSuite.Libs.Services
 
         public async Task AuthorizationAsync(IConfiguration configuration)
         {
+            _configuration = configuration;
+
             _credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
                         new ClientSecrets
                         {
@@ -44,8 +50,6 @@ namespace GSuite.Libs.Services
             configuration.GetLogin(),
             CancellationToken.None,
             new FileDataStore("AuthStore"));
-
-            _configuration = configuration;
 
         }
 
@@ -63,7 +67,7 @@ namespace GSuite.Libs.Services
             var requestGroupsList = service.Groups.List();
             requestGroupsList.Customer = "my_customer";
             var existingGroup = await Task.Run(() => requestGroupsList.Execute().GroupsValue);
-            
+
             foreach (var item in groups)
             {
                 if (existingGroup.Count(x=>x.Email.ToLower() == item.Name.ToLower())==0)
@@ -72,103 +76,59 @@ namespace GSuite.Libs.Services
                     await Task.Run(() => request.Execute());
                     countCreatadGroups++;
                 }
-
             }
-                   
+
+            // Get existing groups in GSuite
+            var _existGroups = await Task.Run(() => requestGroupsList.Execute().GroupsValue);
+
             return countCreatadGroups;
         }
 
         public async Task<int> CreateMembersAsync(List<Models.User> users)
         {
             int countAddingMembers = 0;
+            int countAddinMembersInCurrentGroup = 0;
 
-            // Create Directory API service.
-            var service = new DirectoryService(new BaseClientService.Initializer()
+            _serfer.AddUsers += ((o, x) =>
             {
-                HttpClientInitializer = _credential,
-                ApplicationName = "GSuiteGroups"
+                countAddingMembers = countAddingMembers + x;
+                countAddinMembersInCurrentGroup = countAddinMembersInCurrentGroup + x;
             });
 
+            await _serfer.AuthorizationAsync(_configuration);
 
-            var requestGroupsList = service.Groups.List();
-            requestGroupsList.Customer = "my_customer";
-            var existingGroup = await Task.Run(() => requestGroupsList.Execute().GroupsValue);
+
+            _membersLeftToAdd = users;
 
             IList<string> addedGroups = users.GroupBy(u => u.GroupName)
                .Select(grp => grp.First().GroupName)
                .ToList();
 
-            existingGroup = existingGroup.Where(x => addedGroups.Contains(x.Name)).ToList();
+            _existGroups = _existGroups.Where(x => addedGroups.Contains(x)).ToList();
                 
 
 
-            foreach (var group in existingGroup)
-            { 
+            foreach (var group in _existGroups)
+            {
+                countAddinMembersInCurrentGroup = 0;
+                List<string> usersInCurrentGroup = users.Where(u => u.GroupName == group).Select(u => u.Name).ToList();
 
-                List<string> usersInCurrentGroup = users.Where(u => u.GroupName == group.Name).Select(u => u.Name).ToList();
-
-
-
-                for (int i = 0; i <= usersInCurrentGroup.Count / 25; i++)
+                if(await _serfer.AddMembersToGroupAsync(usersInCurrentGroup, group))
                 {
-                    try
-                    {
-
-                    // Create a batch request.
-                    BatchRequest request = new BatchRequest(service);
-                    int countRequestAttempt = 0;
-                    IEnumerable<string> top25users = usersInCurrentGroup.Skip(i * 25).Take(25);
-                   // List<Member> listMembers = new List<Member>();
-                    foreach (string user in top25users)
-                    {
-                        // listMembers.Add(new Member() {Email = user, Role = "MEMBER" });
-                        // Members members = new Members() { MembersValue = listMembers };
-                        request.Queue<Member>(service.Members.Insert(
-                            new Member()
-                            {
-                                Email = user,
-                                Role = "MEMBER"
-                            }
-                            , group.Id),
-                           (content, error, x, message) => 
-                         {
-                             // Put your callback code here.
-                             if (error != null)
-                             {
-                                 if (error.Code == 403 && countRequestAttempt >= 1)
-                                     return;
-
-                                 if (error.Code==403 && countRequestAttempt<1)
-                                 {
-                                     // implement elivate algorrytm
-                                     countRequestAttempt++;
-                                     Task.Delay(countRequestAttempt^2*2000).Wait();
-                                     request.ExecuteAsync();
-
-                                 }
-                                else
-
-                                     
-                                     UniversalEvent?.BeginInvoke(this, error.Message, null, null);
-                             }
-                                 
-                         });
-
-                        countAddingMembers++;
-                    }
-
-                    countRequestAttempt = 0;
-                    await request.ExecuteAsync();
-                    UniversalEvent?.BeginInvoke(this, String.Format("Add {0} members to {1} group.", countAddingMembers, group.Name), null, null);
-
-                    }
-                    catch (Exception e)
-                    {
-
-                        UniversalEvent?.BeginInvoke(this, String.Format("Error {0}", e.Message), null, this);
-                    }
-
+                    // Save current state 
+                    _membersLeftToAdd.RemoveAll(x => x.GroupName == group);
+                    _existGroups.Remove(group);
                 }
+                else
+                {
+                   if( (_availableRepeatConnection--) >0 )
+                    {
+                        _membersLeftToAdd.RemoveRange(0, countAddinMembersInCurrentGroup);
+                        await CreateMembersAsync(_membersLeftToAdd);
+                    }
+                }
+
+
 
 
                 //var request = service.Groups.Update(new Google.Apis.Admin.Directory.directory_v1.Data.Group() { Name = item.Name, Email = item.Name });
