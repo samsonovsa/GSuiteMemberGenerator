@@ -20,8 +20,8 @@ namespace GSuite.Libs.Services
         UserCredential _credential;
         IConfiguration _configuration;
 
-        public event EventHandler<int> AddUsers;
-
+        public event EventHandler<string> UniversalEvent;
+        public event EventHandler<int> AddMembersEvent;
 
         public async Task AuthorizationAsync(IConfiguration configuration)
         {
@@ -39,8 +39,10 @@ namespace GSuite.Libs.Services
             new FileDataStore("AuthStore"));
         }
 
-        public async Task<bool> AddMembersToGroupAsync(IList<string> users, string groupName)
+        public async Task<bool> AddMembersToGroupAsync(IList<string> members, string groupId)
         {
+            int countAddingMembers = 0;
+
             // Create Directory API service.
             var service = new DirectoryService(new BaseClientService.Initializer()
             {
@@ -48,32 +50,26 @@ namespace GSuite.Libs.Services
                 ApplicationName = "GSuiteGroups"
             });
 
-            var requestGroupsList = service.Groups.List();
-            requestGroupsList.Customer = "my_customer";
-            var groups = await Task.Run(() => requestGroupsList.Execute().GroupsValue);
-            var group = groups.Where(x => x.Name == groupName).FirstOrDefault();
-
-            for (int i = 0; i <= users.Count / 25; i++)
+            // splitting the list into packages by 25 members
+            for (int i = 0; i <= members.Count / 25; i++)
             {
                 try
                 {
-
                     // Create a batch request.
                     BatchRequest request = new BatchRequest(service);
-                    int countRequestAttempt = 0;
-                    IEnumerable<string> top25users = users.Skip(i * 25).Take(25);
-                    // List<Member> listMembers = new List<Member>();
-                    foreach (string user in top25users)
+
+                    IEnumerable<string> top25members = members.Skip(i * 25).Take(25);
+                    int countRequestAttempt = 0;    // for implement elivate algorrytm
+
+                    foreach (string member in top25members)
                     {
-                        // listMembers.Add(new Member() {Email = user, Role = "MEMBER" });
-                        // Members members = new Members() { MembersValue = listMembers };
                         request.Queue<Member>(service.Members.Insert(
                             new Member()
                             {
-                                Email = user,
+                                Email = member,
                                 Role = "MEMBER"
                             }
-                            , group.Id),
+                            , groupId),
                            (content, error, x, message) =>
                            {
                                // Put your callback code here.
@@ -88,7 +84,6 @@ namespace GSuite.Libs.Services
                                        countRequestAttempt++;
                                        Task.Delay(countRequestAttempt ^ 2 * 2000).Wait();
                                        request.ExecuteAsync();
-
                                    }
                                    else
                                        UniversalEvent?.BeginInvoke(this, error.Message, null, null);
@@ -101,16 +96,20 @@ namespace GSuite.Libs.Services
 
                     countRequestAttempt = 0;
                     await request.ExecuteAsync();
-                    UniversalEvent?.BeginInvoke(this, String.Format("Add {0} members to {1} group.", countAddingMembers, group.Name), null, null);
+                    AddMembersEvent?.BeginInvoke(this,countAddingMembers, null, null);
+                  
 
                 }
                 catch (Exception e)
                 {
 
                     UniversalEvent?.BeginInvoke(this, String.Format("Error {0}", e.Message), null, this);
+                    return false;
                 }
 
             }
+
+            return true;
         }
 
 
@@ -119,7 +118,7 @@ namespace GSuite.Libs.Services
 
         public string CurrentUrl => throw new NotImplementedException();
 
-        public event EventHandler<int> AddUsers;
+
 
         public Task<bool> AccessAsync(string url, string login, string password)
         {

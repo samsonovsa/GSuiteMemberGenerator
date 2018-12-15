@@ -23,8 +23,11 @@ namespace GSuite.Libs.Services
         IConfiguration _configuration;
         ISerferService _serfer;
 
-        List<string> _existGroups;
-        List<Models.User> _membersLeftToAdd;
+        IList<Google.Apis.Admin.Directory.directory_v1.Data.Group> _existGroups;
+        List<Models.Member> _membersLeftToAdd;
+
+        int _countAddingMembers = 0;
+
         int _availableRepeatConnection = 10;
 
 
@@ -50,7 +53,6 @@ namespace GSuite.Libs.Services
             configuration.GetLogin(),
             CancellationToken.None,
             new FileDataStore("AuthStore"));
-
         }
 
         public async Task<int> CreateGroupAsync(IEnumerable<Models.Group> groups)
@@ -79,45 +81,46 @@ namespace GSuite.Libs.Services
             }
 
             // Get existing groups in GSuite
-            var _existGroups = await Task.Run(() => requestGroupsList.Execute().GroupsValue);
+            _existGroups = await Task.Run(() => requestGroupsList.Execute().GroupsValue);
 
             return countCreatadGroups;
         }
 
-        public async Task<int> CreateMembersAsync(List<Models.User> users)
+        public async Task<int> CreateMembersAsync(List<Models.Member> members)
         {
-            int countAddingMembers = 0;
             int countAddinMembersInCurrentGroup = 0;
 
-            _serfer.AddUsers += ((o, x) =>
-            {
-                countAddingMembers = countAddingMembers + x;
-                countAddinMembersInCurrentGroup = countAddinMembersInCurrentGroup + x;
-            });
 
             await _serfer.AuthorizationAsync(_configuration);
 
+            _membersLeftToAdd = members;
 
-            _membersLeftToAdd = users;
-
-            IList<string> addedGroups = users.GroupBy(u => u.GroupName)
+            // implement filter groups correspond to members will be add
+            IList<string> addedGroups = members.GroupBy(u => u.GroupName)
                .Select(grp => grp.First().GroupName)
                .ToList();
-
-            _existGroups = _existGroups.Where(x => addedGroups.Contains(x)).ToList();
+            _existGroups = _existGroups.Where(x => addedGroups.Contains(x.Name)).ToList();
                 
-
 
             foreach (var group in _existGroups)
             {
                 countAddinMembersInCurrentGroup = 0;
-                List<string> usersInCurrentGroup = users.Where(u => u.GroupName == group).Select(u => u.Name).ToList();
 
-                if(await _serfer.AddMembersToGroupAsync(usersInCurrentGroup, group))
+                _serfer.AddMembersEvent += ((o, x) =>
+                {
+                    countAddinMembersInCurrentGroup = x;
+                    UniversalEvent?.BeginInvoke(this, String.Format("Add {0} members to {1} group.",
+                        _countAddingMembers+ countAddinMembersInCurrentGroup, group.Name), null, null);
+                });
+
+                List<string> membersInCurrentGroup = members.Where(m => m.GroupName == group.Name).Select(m => m.Name).ToList();
+
+                if(await _serfer.AddMembersToGroupAsync(membersInCurrentGroup, group.Id))
                 {
                     // Save current state 
-                    _membersLeftToAdd.RemoveAll(x => x.GroupName == group);
+                    _membersLeftToAdd.RemoveAll(x => x.GroupName == group.Name);
                     _existGroups.Remove(group);
+                    _countAddingMembers = _countAddingMembers + countAddinMembersInCurrentGroup;
                 }
                 else
                 {
@@ -141,13 +144,13 @@ namespace GSuite.Libs.Services
 
             
 
-            return countAddingMembers;
+            return _countAddingMembers;
 
 
 
         }
 
-        public async Task CreateUsersAsync(List<Models.User> users)
+        public async Task CreateUsersAsync(List<Models.Member> members)
         {
             int countAddingMembers = 0;
 
@@ -156,7 +159,7 @@ namespace GSuite.Libs.Services
             { 
                 UniversalEvent?.BeginInvoke(this, "Page loaded", null, null);
 
-                IList<string> groups =  users.GroupBy(u => u.GroupName)
+                IList<string> groups = members.GroupBy(u => u.GroupName)
                        .Select(grp => grp.First().GroupName)
                        .ToList();
 
@@ -164,11 +167,12 @@ namespace GSuite.Libs.Services
                 {
                     int countAttempts = 0;  // counter attempts re-entry to G Suite in case of session interruption
 
-                    List<string> usersInCurrentGroup = users.Where(u => u.GroupName == group).Select(u=>u.Name).ToList();
+                    List<string> usersInCurrentGroup = members.Where(u => u.GroupName == group).Select(u=>u.Name).ToList();
 
                     while (usersInCurrentGroup.Count > 0)
                     {
-                        countAddingMembers = await _serfer.AddMembersToGroupAsync(usersInCurrentGroup, group);
+                       // countAddingMembers = await _serfer.AddMembersToGroupAsync(usersInCurrentGroup, group);
+
                         // Delete added members to next restore (like control point in transaction)
                         usersInCurrentGroup.RemoveRange(0, countAddingMembers);
                         UniversalEvent?.BeginInvoke(this, String.Format("Add {0} members to {1} group.", countAddingMembers, group), null, null);

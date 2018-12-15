@@ -10,8 +10,8 @@ namespace GSuite.Libs.Services.Interfaces
     {
         Task AuthorizationAsync(IConfiguration configuration);
         Task<int> CreateGroupAsync(IEnumerable<Group> groups);
-        Task CreateUsersAsync(List<User> users);
-        Task<int> CreateMembersAsync(List<Models.User> users);
+        Task CreateUsersAsync(List<Member> users);
+        Task<int> CreateMembersAsync(List<Models.Member> users);
         event EventHandler<string> UniversalEvent;
 
     }

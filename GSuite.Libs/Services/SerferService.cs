@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using GSuite.Libs.Helpers;
 using GSuite.Libs.Services.Interfaces;
 using System.Collections.Generic;
+using GSuite.Libs.Config;
 
 //using System.Web;
 
@@ -26,6 +27,8 @@ namespace GSuite.Libs
  #region Public Propertyes
 
         public event EventHandler<int> AddUsers;
+        public event EventHandler<int> AddMembersEvent;
+        public event EventHandler<string> UniversalEvent;
 
         public string CurrentPage
         {
@@ -371,6 +374,16 @@ _cancelToken);
         }
 
         public Task CloseCurrentSession()
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task AuthorizationAsync(IConfiguration configuration)
+        {
+            throw new NotImplementedException();
+        }
+
+        Task<bool> ISerferService.AddMembersToGroupAsync(IList<string> users, string groupId)
         {
             throw new NotImplementedException();
         }

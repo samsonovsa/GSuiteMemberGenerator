@@ -3,16 +3,16 @@ using System.Text.RegularExpressions;
 
 namespace GSuite.Libs.Models
 {
-    class User: Entity
+    class Member: Entity
     {
         public string GroupName { get; set; }
 
-        public User():base("")
+        public Member():base("")
         {
 
         }
 
-        public User(string name):base(name)
+        public Member(string name):base(name)
         {
 
         }

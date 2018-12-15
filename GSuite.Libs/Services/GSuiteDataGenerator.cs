@@ -13,7 +13,7 @@ namespace GSuite.Libs.Services
 {
     class GSuiteDataGenerator : IGSuiteDataGenerator
     {
-        List<User> _users = new List<User>();
+        List<Member> _users = new List<Member>();
         List<Group> _groups = new List<Group>();
         IEntityReader _reader;
         IConfiguration _config;
@@ -96,7 +96,7 @@ namespace GSuite.Libs.Services
 
             foreach (Entity item in _reader.GetEntityes(_userFileName))
             {
-                User user = new User(item.Name);
+                Member user = new Member(item.Name);
                 if (user.Validator())
                     _users.Add(user);
             }
@@ -108,7 +108,7 @@ namespace GSuite.Libs.Services
             // Distribution of users into groups
             _users = _users.Select((item, index) => new { Index = index, Value = item }) 
                        .GroupBy(x => x.Index % _groups.Count)
-                       .SelectMany(x => x.Select((j,i)=> new User {
+                       .SelectMany(x => x.Select((j,i)=> new Member {
                            GroupName = _groups[x.Key].Name,
                            Name = j.Value.Name })).ToList();
         }

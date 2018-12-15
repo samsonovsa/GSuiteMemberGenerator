@@ -8,7 +8,7 @@ using System.Windows.Forms;
 using System.Threading;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
-
+using GSuite.Libs.Config;
 
 namespace GSuite.Libs.Services
 {
@@ -25,7 +25,8 @@ namespace GSuite.Libs.Services
 
         #region Public Propertyes
 
-        public event EventHandler<int> AddUsers;
+        public event EventHandler<int> AddMembersEvent;
+        public event EventHandler<string> UniversalEvent;
 
         public string CurrentPage
         {
@@ -206,6 +207,16 @@ namespace GSuite.Libs.Services
 
             }
 
+        }
+
+        public Task AuthorizationAsync(IConfiguration configuration)
+        {
+            throw new NotImplementedException();
+        }
+
+        Task<bool> ISerferService.AddMembersToGroupAsync(IList<string> users, string groupId)
+        {
+            throw new NotImplementedException();
         }
     }
 }

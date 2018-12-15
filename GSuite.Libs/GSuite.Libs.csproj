@@ -87,7 +87,7 @@
     <Compile Include="Helpers\WebBrowserExt.cs" />
     <Compile Include="Models\Entity.cs" />
     <Compile Include="Models\Group.cs" />
-    <Compile Include="Models\User.cs" />
+    <Compile Include="Models\Member.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Interface\IGSuiteDataGenerator.cs" />
     <Compile Include="Services\EntityReader.cs" />

@@ -14,7 +14,8 @@ namespace GSuite.Libs.Config
             // builder.RegisterModule<DataModule>();
 
             // builder.RegisterType<SerferService>().As<ISerferService>();
-            builder.RegisterType<SerferSeleniumService>().As<ISerferService>();  
+            builder.RegisterType<SerferAPIService>().As<ISerferService>();
+           //  builder.RegisterType<SerferSeleniumService>().As<ISerferService>();  
             builder.RegisterType<EntityReader>().As<IEntityReader>();
             builder.RegisterType<Configuration>().As<IConfiguration>();
             builder.RegisterType<Worker>().As<IWorker>()
